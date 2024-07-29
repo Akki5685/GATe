@@ -1,4 +1,4 @@
-package org.example;
+package example;
 
 import javax.swing.*;
 import java.awt.event.ActionEvent;

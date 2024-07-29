@@ -1,4 +1,4 @@
-package org.example;
+package example;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -487,130 +487,151 @@ public class GitHubActionsTriggerUIUsingSchedule extends JFrame {
         }
     }
 
-    private  void createOrUpdateFile() throws IOException {
-        // Step 1: Get the current file SHA (if it exists)
-        String sha = getFileSha(workflowIdField.getText());
+    private void createOrUpdateFile() throws IOException {
+        try {
+            // Step 1: Get the current file SHA (if it exists)
+            String sha = getFileSha(workflowIdField.getText());
 
-        // Step 2: Create or update the file
-        URL url = new URL("https://api.github.com/repos/" + ownerField.getText() + "/" + repoField.getText() + "/contents/.github/workflows/" + workflowIdField.getText());
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setRequestMethod("PUT");
-        connection.setRequestProperty("Authorization", "token " + tokenField.getText());
-        connection.setRequestProperty("Accept", "application/vnd.github+json");
-        connection.setDoOutput(true);
-        connection.setRequestProperty("Content-Type", "application/json");
+            // Step 2: Create or update the file
+            URL url = new URL("https://api.github.com/repos/" + ownerField.getText() + "/" + repoField.getText() + "/contents/.github/workflows/" + workflowIdField.getText());
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("PUT");
+            connection.setRequestProperty("Authorization", "token " + tokenField.getText());
+            connection.setRequestProperty("Accept", "application/vnd.github+json");
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "application/json");
 
-        JSONObject jsonBody = new JSONObject();
-        jsonBody.put("message", getCommitMessage(consoleArea.getText()));
-        jsonBody.put("content", new String(java.util.Base64.getEncoder().encode(outputArea.getText().getBytes(StandardCharsets.UTF_8))));
-        if (sha != null) {
-            jsonBody.put("sha", sha);
-        }
-
-        try (OutputStream os = connection.getOutputStream()) {
-            byte[] input = jsonBody.toString().getBytes("utf-8");
-            os.write(input, 0, input.length);
-        }
-
-        int responseCode = connection.getResponseCode();
-        if (responseCode != HttpURLConnection.HTTP_CREATED && responseCode != HttpURLConnection.HTTP_OK) {
-            throw new IOException("Failed to create/update file. HTTP response code: " + responseCode);
-        }
-    }
-    private String getFileSha(String apiUrl, String token) throws IOException {
-        // Retrieve the SHA of the file by making a GET request
-        URL url = new URL(apiUrl);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setRequestMethod("GET");
-        conn.setRequestProperty("Accept", "application/vnd.github.v3+json");
-        conn.setRequestProperty("Authorization", "token " + token);
-
-        InputStream inputStream = conn.getInputStream();
-        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
-        StringBuilder response = new StringBuilder();
-        String line;
-        while ((line = reader.readLine()) != null) {
-            response.append(line).append("\n");
-        }
-        reader.close();
-
-        JSONObject jsonResponse = new JSONObject(response.toString());
-        return jsonResponse.getString("sha");
-    }
-
-    private int getArtifactId(long runId) throws Exception {
-        URL url = new URL("https://api.github.com/repos/" + ownerField.getText() + "/" + repoField.getText() + "/actions/runs/" + runId + "/artifacts");
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setRequestMethod("GET");
-        conn.setRequestProperty("Authorization", "token " + tokenField.getText());
-
-        InputStream is = conn.getInputStream();
-        BufferedInputStream bis = new BufferedInputStream(is);
-        byte[] bytes = bis.readAllBytes();
-        String response = new String(bytes);
-
-        JSONObject jsonResponse = new JSONObject(response);
-        JSONArray artifacts = jsonResponse.getJSONArray("artifacts");
-        if (artifacts.length() > 0) {
-            return artifacts.getJSONObject(0).getInt("id");
-        } else {
-            throw new RuntimeException("No artifacts found");
-        }
-    }
-
-    private void downloadArtifact(long artifactId) throws Exception {
-        URL url = new URL("https://api.github.com/repos/" + ownerField.getText() + "/" + repoField.getText() + "/actions/artifacts/" + artifactId + "/zip");
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setRequestMethod("GET");
-        conn.setRequestProperty("Authorization", "token " + tokenField.getText());
-
-        InputStream is = conn.getInputStream();
-        String userHome = System.getProperty("user.home");
-        Path desktopPath = Paths.get(userHome, "Desktop");
-        // Construct the path to the report.zip file
-        Path filePath = Paths.get(desktopPath.toString(), "Report.zip");
-
-        try (FileOutputStream fos = new FileOutputStream(filePath.toFile())) {
-            // Write data to the file
-            // fos.write(data); // Replace with actual data to write
-            byte[] buffer = new byte[1024];
-            int bytesRead;
-            while ((bytesRead = is.read(buffer)) != -1) {
-                fos.write(buffer, 0, bytesRead);
+            JSONObject jsonBody = new JSONObject();
+            jsonBody.put("message", getCommitMessage(consoleArea.getText()));
+            jsonBody.put("content", new String(java.util.Base64.getEncoder().encode(outputArea.getText().getBytes(StandardCharsets.UTF_8))));
+            if (sha != null) {
+                jsonBody.put("sha", sha);
             }
 
-            fos.close();
-            is.close();
+            try (OutputStream os = connection.getOutputStream()) {
+                byte[] input = jsonBody.toString().getBytes("utf-8");
+                os.write(input, 0, input.length);
+            }
 
-            System.out.println("File created at: " + filePath.toAbsolutePath());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private  String getFileSha(String path) throws IOException {
-        URL url = new URL("https://api.github.com/repos/" + ownerField.getText() + "/" + repoField.getText() + "/contents/" + path);
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setRequestMethod("GET");
-        connection.setRequestProperty("Authorization", "token " + tokenField.getText());
-        connection.setRequestProperty("Accept", "application/vnd.github+json");
-
-        int responseCode = connection.getResponseCode();
-        if (responseCode == HttpURLConnection.HTTP_OK) {
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream(), "utf-8"))) {
-                StringBuilder response = new StringBuilder();
-                String responseLine;
-                while ((responseLine = br.readLine()) != null) {
-                    response.append(responseLine.trim());
+            int responseCode = connection.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_CREATED || responseCode == HttpURLConnection.HTTP_OK) {
+                consoleArea.setText("Workflow file created/updated successfully.");
+            } else {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getErrorStream(), StandardCharsets.UTF_8));
+                StringBuilder errorResponse = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    errorResponse.append(line).append("\n");
                 }
-                JSONObject jsonResponse = new JSONObject(response.toString());
-                return jsonResponse.optString("sha", null);
+                reader.close();
+                consoleArea.setText("Failed to create/update workflow file: " + responseCode + " - " + errorResponse.toString());
             }
-        } else {
-            return null;
+        } catch (Exception e) {
+            e.printStackTrace();
+            consoleArea.setText("Error: " + e.getMessage());
         }
     }
-}
+
+
+
+
+    private String getFileSha (String apiUrl, String token)throws IOException {
+            // Retrieve the SHA of the file by making a GET request
+            URL url = new URL(apiUrl);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Accept", "application/vnd.github.v3+json");
+            conn.setRequestProperty("Authorization", "token " + token);
+
+            InputStream inputStream = conn.getInputStream();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                response.append(line).append("\n");
+            }
+            reader.close();
+
+            JSONObject jsonResponse = new JSONObject(response.toString());
+            return jsonResponse.getString("sha");
+        }
+
+        private int getArtifactId ( long runId)throws Exception {
+            URL url = new URL("https://api.github.com/repos/" + ownerField.getText() + "/" + repoField.getText() + "/actions/runs/" + runId + "/artifacts");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Authorization", "token " + tokenField.getText());
+
+            InputStream is = conn.getInputStream();
+            BufferedInputStream bis = new BufferedInputStream(is);
+            byte[] bytes = bis.readAllBytes();
+            String response = new String(bytes);
+
+            JSONObject jsonResponse = new JSONObject(response);
+            JSONArray artifacts = jsonResponse.getJSONArray("artifacts");
+            if (artifacts.length() > 0) {
+                return artifacts.getJSONObject(0).getInt("id");
+            } else {
+                throw new RuntimeException("No artifacts found");
+            }
+        }
+
+        private void downloadArtifact ( long artifactId)throws Exception {
+            URL url = new URL("https://api.github.com/repos/" + ownerField.getText() + "/" + repoField.getText() + "/actions/artifacts/" + artifactId + "/zip");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Authorization", "token " + tokenField.getText());
+
+            InputStream is = conn.getInputStream();
+            String userHome = System.getProperty("user.home");
+            Path desktopPath = Paths.get(userHome, "Desktop");
+            // Construct the path to the report.zip file
+            Path filePath = Paths.get(desktopPath.toString(), "Report.zip");
+
+            try (FileOutputStream fos = new FileOutputStream(filePath.toFile())) {
+                // Write data to the file
+                // fos.write(data); // Replace with actual data to write
+                byte[] buffer = new byte[1024];
+                int bytesRead;
+                while ((bytesRead = is.read(buffer)) != -1) {
+                    fos.write(buffer, 0, bytesRead);
+                }
+
+                fos.close();
+                is.close();
+
+                System.out.println("File created at: " + filePath.toAbsolutePath());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        private String getFileSha (String path)throws IOException {
+            URL url = new URL("https://api.github.com/repos/" + ownerField.getText() + "/" + repoField.getText() + "/contents/.github/workflows/" + path);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("Authorization", "token " + tokenField.getText());
+            connection.setRequestProperty("Accept", "application/vnd.github+json");
+
+            int responseCode = connection.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream(), "utf-8"))) {
+                    StringBuilder response = new StringBuilder();
+                    String responseLine;
+                    while ((responseLine = br.readLine()) != null) {
+                        response.append(responseLine.trim());
+                    }
+                    JSONObject jsonResponse = new JSONObject(response.toString());
+                    return jsonResponse.optString("sha", null);
+                }
+            } else if (responseCode == HttpURLConnection.HTTP_NOT_FOUND) {
+                return null; // File does not exist yet
+            } else {
+                throw new IOException("Failed to get file SHA. HTTP response code: " + responseCode);
+            }
+        }
+
+    }
 
 
 
