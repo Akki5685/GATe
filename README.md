@@ -1,5 +1,5 @@
 
-_GATe Tool, enhance user experience by simplifying the process, bypassing all the manual steps, and directly accessing the workflow to trigger jobs._
+**_GATe Tool, enhance user experience by simplifying the process, bypassing all the manual steps, and directly accessing the workflow to trigger jobs._**
 
 
 In Continuous Integration process while doing through the workflow, we used to go through the following steps 
