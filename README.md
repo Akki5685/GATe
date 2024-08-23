@@ -20,7 +20,7 @@ GATe Tool, enhance user experience by simplifying the process, bypassing all the
 
 
 
-Owner  is the GitHub repo admin. Here GitActions is the repo and admin is the Akki5685 
+Owner  is the GitHub repo admin. Here gitActions is the repo and admin is the Akki5685 
 Repository is the name of the repo i.e., gitActions.
 Personal Access Token is the token to access the repo as similar way using user credentials.
 Branch, after providing all the above values click on the load branches then list would be updated in drop down. And select the respective branch here.
