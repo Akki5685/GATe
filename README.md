@@ -1,13 +1,8 @@
 In Continuous Integration process while doing through the workflow, we used to go through the following steps 
-•	Open browser 
-•	Navigate to GitHub 
-•	Get access through SSO 
-•	Open the Repo 
-•	Go to Workflow Folder 
-•	Select the workflow file 
-•	Make changes / commit /push the code / trigger the workflow dispatch to start the job. 
-•	Check the status of workflow whether job starts/in progress/ pass/ fail/ completed. 
-•	Post execution we need the status of our test scripts i.e., html report. In case we have runner setup in remote desktop it will be difficult for us to fetch the report from there. 
+Open browser,Navigate to GitHub, Get access through SSO, Open the Repo, Go to Workflow Folder, Select the workflow file, Make changes / commit /push the code / trigger the workflow dispatch to start the job, Check the status of workflow whether job starts/in progress/ pass/ fail/ completed, Post execution we need the status of our test scripts i.e., html report. 
+
+In case we have runner setup in remote desktop it will be difficult for us to fetch the report from there. 
+
 GATe Tool, enhance user experience by simplifying the process, bypassing all the manual steps, and directly accessing the workflow to trigger jobs.
 
 ![image](https://github.com/user-attachments/assets/baa28b10-6dd6-4e44-9589-74a135c2b559)
