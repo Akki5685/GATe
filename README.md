@@ -3,15 +3,15 @@
 
 
 In Continuous Integration process while doing through the workflow, we used to go through the following steps 
-Open browser,
-Navigate to GitHub, 
-Get access through SSO, 
-Open the Repo, 
-Go to Workflow Folder, 
-Select the workflow file, 
-Make changes / commit /push the code / trigger the workflow dispatch to start the job, 
-Check the status of workflow whether job starts/in progress/ pass/ fail/ completed,
-Post execution we need the status of our test scripts i.e., html report. 
+1. Open browser,
+2. Navigate to GitHub, 
+3. Get access through SSO, 
+4. Open the Repo, 
+5. Go to Workflow Folder, 
+6. Select the workflow file, 
+7. Make changes / commit /push the code / trigger the workflow dispatch to start the job, 
+8. Check the status of workflow whether job starts/in progress/ pass/ fail/ completed,
+9. Post execution we need the status of our test scripts i.e., html report. 
 
 In case we have runner setup in remote desktop it will be difficult for us to fetch the report from there. 
 
