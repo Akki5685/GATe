@@ -11,9 +11,11 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -293,8 +295,9 @@ public class GitHubActionsTriggerUIUsingSchedule extends JFrame {
         }
     }
 
+
     private String appendUploadArtifactsJob(String content) {
-        // Define the new job to upload artifacts
+        // Define the base job string for uploading artifacts
         String uploadArtifactsJob = "  upload-artifacts:\n"
                 + "    runs-on: self-hosted\n"
                 + "    needs: print\n"
@@ -304,13 +307,42 @@ public class GitHubActionsTriggerUIUsingSchedule extends JFrame {
                 + "        uses: actions/upload-artifact@v3\n"
                 + "        with:\n"
                 + "          name: test-reports\n"
-                + "          path: ${{ github.workspace }}/TestReports\n";
+                + "          path: ${{ github.workspace }}/";
 
         // Check if the job already exists in the content
         if (content.contains("upload-artifacts:")) {
             outputArea.setText("Job 'upload-artifacts' already exists in the content.");
             return content;
         }
+
+        // Get the latest modified folder in TestReports directory
+        String latestFolderPath = "TestReports"; // Default path
+        try {
+            File testReportsDir = new File(System.getProperty("user.dir") + "/TestReports");
+            if (testReportsDir.exists() && testReportsDir.isDirectory()) {
+                // Find the latest modified directory
+                File latestDir = Files.list(Paths.get(testReportsDir.getAbsolutePath()))
+                        .filter(Files::isDirectory) // Only consider directories
+                        .max(Comparator.comparingLong(p -> p.toFile().lastModified()))
+                        .map(Path::toFile)
+                        .orElse(null);
+
+                // If a latest folder exists, update the path to include it
+                if (latestDir != null) {
+                    latestFolderPath += "/" + latestDir.getName();
+                }
+            } else {
+                outputArea.setText("TestReports directory does not exist.");
+                return content;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            outputArea.setText("Error finding the latest folder in TestReports.");
+            return content;
+        }
+
+        // Append the path of the latest folder to the job definition
+        uploadArtifactsJob += latestFolderPath + "\n";
 
         // Find the index of the last job section
         int jobsSectionIndex = content.lastIndexOf("jobs:");
@@ -327,7 +359,6 @@ public class GitHubActionsTriggerUIUsingSchedule extends JFrame {
             return content;
         }
     }
-
 
     public String getCommitMessage(String message) {
         if (message.contains("\"")) {
