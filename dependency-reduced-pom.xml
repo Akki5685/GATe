@@ -12,7 +12,7 @@
           <archive>
             <manifest>
               <addClasspath>true</addClasspath>
-              <mainClass>example.GitHubActionsTriggerUIUsingSchedule</mainClass>
+              <mainClass>example.gitHubActionsTriggerUIUsingSchedule</mainClass>
             </manifest>
           </archive>
         </configuration>
@@ -39,7 +39,7 @@
               </filters>
               <transformers>
                 <transformer>
-                  <mainClass>example.GitHubActionsTriggerUIUsingSchedule</mainClass>
+                  <mainClass>example.gitHubActionsTriggerUIUsingSchedule</mainClass>
                 </transformer>
               </transformers>
             </configuration>
@@ -61,7 +61,7 @@
         <configuration>
           <archive>
             <manifest>
-              <mainClass>example.GitHubActionsTriggerUIUsingSchedule</mainClass>
+              <mainClass>example.gitHubActionsTriggerUIUsingSchedule</mainClass>
             </manifest>
           </archive>
           <descriptorRefs>

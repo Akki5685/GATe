@@ -14,12 +14,17 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 public class GitHubActionsTriggerUIUsingSchedule extends JFrame {
     private static final String PROPERTIES_FILE = "app.properties";
@@ -160,7 +165,7 @@ public class GitHubActionsTriggerUIUsingSchedule extends JFrame {
                     String selectedReport = (String) reportDropdown.getSelectedItem();
                     JOptionPane.showMessageDialog(GitHubActionsTriggerUIUsingSchedule.this, "Generating Report");
                     try {
-                        downloadArtifact(getArtifactId(Long.parseLong(selectedReport)));
+                        downloadArtifacts(getArtifactId(Long.parseLong(selectedReport)));
                     } catch (Exception ex) {
                         throw new RuntimeException(ex);
                     }
@@ -564,105 +569,174 @@ public class GitHubActionsTriggerUIUsingSchedule extends JFrame {
     }
 
 
+    private String getFileSha(String apiUrl, String token) throws IOException {
+        // Retrieve the SHA of the file by making a GET request
+        URL url = new URL(apiUrl);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setRequestProperty("Accept", "application/vnd.github.v3+json");
+        conn.setRequestProperty("Authorization", "token " + token);
 
+        InputStream inputStream = conn.getInputStream();
+        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
+        StringBuilder response = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            response.append(line).append("\n");
+        }
+        reader.close();
 
-    private String getFileSha (String apiUrl, String token)throws IOException {
-            // Retrieve the SHA of the file by making a GET request
-            URL url = new URL(apiUrl);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setRequestProperty("Accept", "application/vnd.github.v3+json");
-            conn.setRequestProperty("Authorization", "token " + token);
+        JSONObject jsonResponse = new JSONObject(response.toString());
+        return jsonResponse.getString("sha");
+    }
 
-            InputStream inputStream = conn.getInputStream();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
-            StringBuilder response = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                response.append(line).append("\n");
-            }
-            reader.close();
+    private List<Long> getArtifactId(long runId) throws Exception {
+        URL url = new URL("https://api.github.com/repos/" + ownerField.getText() + "/" + repoField.getText() + "/actions/runs/" + runId + "/artifacts");
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setRequestProperty("Authorization", "token " + tokenField.getText());
 
-            JSONObject jsonResponse = new JSONObject(response.toString());
-            return jsonResponse.getString("sha");
+        InputStream is = conn.getInputStream();
+        BufferedInputStream bis = new BufferedInputStream(is);
+        byte[] bytes = bis.readAllBytes();
+        String response = new String(bytes);
+
+        JSONObject jsonResponse = new JSONObject(response);
+        JSONArray artifacts = jsonResponse.getJSONArray("artifacts");
+        // Create a list to store artifact IDs
+
+        // Create a list to store artifact IDs
+        List<Long> artifactIds = new ArrayList<>();
+
+        // Iterate over each artifact and add its ID to the list
+        for (int i = 0; i < artifacts.length(); i++) {
+            JSONObject artifact = artifacts.getJSONObject(i);
+            artifactIds.add(artifact.getLong("id")); // Use getLong for long type
         }
 
-        private int getArtifactId ( long runId)throws Exception {
-            URL url = new URL("https://api.github.com/repos/" + ownerField.getText() + "/" + repoField.getText() + "/actions/runs/" + runId + "/artifacts");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setRequestProperty("Authorization", "token " + tokenField.getText());
+        // Return the list of artifact IDs
+        return artifactIds;
+    }
 
-            InputStream is = conn.getInputStream();
-            BufferedInputStream bis = new BufferedInputStream(is);
-            byte[] bytes = bis.readAllBytes();
-            String response = new String(bytes);
 
-            JSONObject jsonResponse = new JSONObject(response);
-            JSONArray artifacts = jsonResponse.getJSONArray("artifacts");
-            if (artifacts.length() > 0) {
-                return artifacts.getJSONObject(0).getInt("id");
-            } else {
-                throw new RuntimeException("No artifacts found");
-            }
+    public void downloadArtifacts(List<Long> artifactIds) throws IOException {
+        // Temporary directory to store downloaded artifacts
+        Path tempDir = Files.createTempDirectory("github-artifacts");
+
+        // Download each artifact
+        for (Long artifactId : artifactIds) {
+            downloadArtifact(artifactId, tempDir);
         }
 
-        private void downloadArtifact ( long artifactId)throws Exception {
-            URL url = new URL("https://api.github.com/repos/" + ownerField.getText() + "/" + repoField.getText() + "/actions/artifacts/" + artifactId + "/zip");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setRequestProperty("Authorization", "token " + tokenField.getText());
+        // Create a single ZIP file on the Desktop
+        Path userHome = Paths.get(System.getProperty("user.home"));
+        Path desktopPath = userHome.resolve("Desktop");
+        Path finalZipPath = desktopPath.resolve("Report.zip");
 
-            InputStream is = conn.getInputStream();
-            String userHome = System.getProperty("user.home");
-            Path desktopPath = Paths.get(userHome, "Desktop");
-            // Construct the path to the report.zip file
-            Path filePath = Paths.get(desktopPath.toString(), "Report.zip");
+        // Create the ZIP file
+        try (FileOutputStream fos = new FileOutputStream(finalZipPath.toFile());
+             ZipOutputStream zos = new ZipOutputStream(fos)) {
+            Files.walk(tempDir)
+                    .filter(Files::isRegularFile)
+                    .forEach(file -> {
+                        try {
+                            ZipEntry zipEntry = new ZipEntry(tempDir.relativize(file).toString());
+                            zos.putNextEntry(zipEntry);
+                            Files.copy(file, zos);
+                            zos.closeEntry();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    });
+        }
 
-            try (FileOutputStream fos = new FileOutputStream(filePath.toFile())) {
-                // Write data to the file
-                // fos.write(data); // Replace with actual data to write
+        // Clean up temporary directory
+        deleteDirectory(tempDir);
+
+        System.out.println("File created at: " + finalZipPath.toAbsolutePath());
+    }
+
+    private void downloadArtifact(Long artifactId, Path tempDir) throws IOException {
+        URL url = new URL("https://api.github.com/repos/" + ownerField.getText() + "/" + repoField.getText() + "/actions/artifacts/" + artifactId + "/zip");
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setRequestProperty("Authorization", "token " +  tokenField.getText());
+
+        try (InputStream is = conn.getInputStream()) {
+            Path artifactFile = tempDir.resolve("artifact-" + artifactId + ".zip");
+            try (FileOutputStream fos = new FileOutputStream(artifactFile.toFile())) {
                 byte[] buffer = new byte[1024];
                 int bytesRead;
                 while ((bytesRead = is.read(buffer)) != -1) {
                     fos.write(buffer, 0, bytesRead);
                 }
-
-                fos.close();
-                is.close();
-
-                System.out.println("File created at: " + filePath.toAbsolutePath());
-            } catch (IOException e) {
-                e.printStackTrace();
             }
+
+            // Unzip the downloaded file
+//            unzipFile(artifactFile, tempDir);
         }
-
-        private String getFileSha (String path)throws IOException {
-            URL url = new URL("https://api.github.com/repos/" + ownerField.getText() + "/" + repoField.getText() + "/contents/.github/workflows/" + path);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");
-            connection.setRequestProperty("Authorization", "token " + tokenField.getText());
-            connection.setRequestProperty("Accept", "application/vnd.github+json");
-
-            int responseCode = connection.getResponseCode();
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream(), "utf-8"))) {
-                    StringBuilder response = new StringBuilder();
-                    String responseLine;
-                    while ((responseLine = br.readLine()) != null) {
-                        response.append(responseLine.trim());
-                    }
-                    JSONObject jsonResponse = new JSONObject(response.toString());
-                    return jsonResponse.optString("sha", null);
-                }
-            } else if (responseCode == HttpURLConnection.HTTP_NOT_FOUND) {
-                return null; // File does not exist yet
-            } else {
-                throw new IOException("Failed to get file SHA. HTTP response code: " + responseCode);
-            }
-        }
-
     }
+
+    private void unzipFile(Path zipFilePath, Path outputDir) throws IOException {
+        try (FileInputStream fis = new FileInputStream(zipFilePath.toFile());
+             ZipInputStream zis = new ZipInputStream(fis)) {
+            ZipEntry zipEntry;
+            while ((zipEntry = zis.getNextEntry()) != null) {
+                Path newFilePath = outputDir.resolve(zipEntry.getName());
+                if (zipEntry.isDirectory()) {
+                    Files.createDirectories(newFilePath);
+                } else {
+                    Files.createDirectories(newFilePath.getParent());
+                    try (FileOutputStream fos = new FileOutputStream(newFilePath.toFile())) {
+                        byte[] buffer = new byte[1024];
+                        int bytesRead;
+                        while ((bytesRead = zis.read(buffer)) != -1) {
+                            fos.write(buffer, 0, bytesRead);
+                        }
+                    }
+                }
+                zis.closeEntry();
+            }
+        }
+    }
+
+    private void deleteDirectory(Path path) throws IOException {
+        Files.walk(path)
+                .sorted(Comparator.reverseOrder())
+                .forEach(p -> {
+                    try {
+                        Files.delete(p);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                });
+    }
+    private String getFileSha(String path) throws IOException {
+        URL url = new URL("https://api.github.com/repos/" + ownerField.getText() + "/" + repoField.getText() + "/contents/.github/workflows/" + path);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("GET");
+        connection.setRequestProperty("Authorization", "token " + tokenField.getText());
+        connection.setRequestProperty("Accept", "application/vnd.github+json");
+
+        int responseCode = connection.getResponseCode();
+        if (responseCode == HttpURLConnection.HTTP_OK) {
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream(), "utf-8"))) {
+                StringBuilder response = new StringBuilder();
+                String responseLine;
+                while ((responseLine = br.readLine()) != null) {
+                    response.append(responseLine.trim());
+                }
+                JSONObject jsonResponse = new JSONObject(response.toString());
+                return jsonResponse.optString("sha", null);
+            }
+        } else if (responseCode == HttpURLConnection.HTTP_NOT_FOUND) {
+            return null; // File does not exist yet
+        } else {
+            throw new IOException("Failed to get file SHA. HTTP response code: " + responseCode);
+        }
+    }
+
+}
 
 
 
